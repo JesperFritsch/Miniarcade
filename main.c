@@ -24,10 +24,12 @@ int main(void)
   bool posedge_L = 0;
   bool posedge_M = 0;
   bool posedge_R = 0;
+
   uint8_t count1 = 0;   //en räknare för varje knapp, som räknas upp varje gång funktionen button_state() anropas
   uint8_t count2 = 0;   //om knappen är nedtryckt.
   uint8_t count3 = 0;
   uint8_t count4 = 0;
+
   unsigned long time_btn = 0;   //en variabel för att kunna räkna ut när vi skall anropa button_state() för alla knappar.
   uint8_t blink_period = 250;
   uint8_t game_mode;
@@ -36,6 +38,8 @@ int main(void)
   uint8_t seqsize = 1;  //en variabel som innehåller storleken på sekvensen.
   uint8_t high_score = 0; //en variabel som innehåller sessionens högsta poäng.
   uint8_t display_digit = 0;  //en variabel som innehåller vilket nummer vi skall visa på displayen.
+
+  uint8_t pop_up = 0;
   unsigned char *sequence = (unsigned char*)malloc(seqsize * sizeof(unsigned char)); //allokerar minnet för våran sekvens.
   assign_sequence(sequence, seqsize); //tilldela sekvensen första värdet.
   while(1){
@@ -89,12 +93,15 @@ int main(void)
       button_2xclick(&check, &btn_enter_2x, &btn_enter_state);
       ledBlink(sequence, seqsize, &check, blink_period, posedge_enter); 
       displayDigit(&seqsize, &high_score, &display_digit, &btn_enter_state, &check); 
-      printDigit(PORTD0);
+      printDigit(display_digit);
       cmp_sequence(sequence, seqsize, &check, btn_L_state, btn_M_state, btn_R_state);
       is_success(&check);
       buzzer(check);
     }
+
     else if(game_mode == 2 && !mode_select){
+      generate_pop_up(&pop_up);
+      show_pop_up(&pop_up);
       printDigit(69);
     }
   }

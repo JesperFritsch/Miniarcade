@@ -388,7 +388,7 @@ void button_longpress(bool *btn_state, bool *longpress){
 
 void button_2xclick(uint8_t *check, bool *btn_2x, bool *btn_state){
   static bool is_done = 1;
-  static uint64_t timer;
+  static unsigned long timer;
   static bool check_state = 0;
   if(*btn_2x){
     *btn_2x = 0;
@@ -455,5 +455,27 @@ void buzzer(uint8_t check){
       go = 0;
     }
   
+  }
+}
+
+void generate_pop_up(uint8_t *pop_up){
+  static uint8_t last_pop;
+  const uint8_t low = 1;
+  const uint8_t high = 4;
+  if(*pop_up == 0){
+    *pop_up = low + rand() / (RAND_MAX / (high - low + 1) + 1);
+    if(*pop_up == 3){
+      *pop_up == 0;
+    }
+  }
+  }
+}
+
+void show_pop_up(uint8_t *pop_up){
+  static unsigned long timer = 0;
+  static uint8_t low = 100;
+  static uint8_t high = 1000;
+  if(millis() > timer){
+    timer += low + rand() / (RAND_MAX / (high - low + 1) + 1)
   }
 }

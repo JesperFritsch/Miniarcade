@@ -40,13 +40,19 @@ int main(void)
   uint8_t display_digit = 0;  //en variabel som innehåller vilket nummer vi skall visa på displayen.
 
   uint8_t pop_up = 0;
+  uint8_t score = 0;
+  bool run_game = 0;
+  bool ledL_on = 0;
+  bool ledM_on = 0;
+  bool ledR_on = 0;
+  unsigned long start_delay;
+  
   unsigned char *sequence = (unsigned char*)malloc(seqsize * sizeof(unsigned char)); //allokerar minnet för våran sekvens.
   assign_sequence(sequence, seqsize); //tilldela sekvensen första värdet.
   while(1){
     
-    
     if(btn_enter_long){   //om man håller ned enterknappen så skall man kunna vexla mellan två spellägen.
-      mode_select = 0; //snabba läget då sekvensen blinkar med 100ms period, och vanlig.
+      mode_select = 0; 
     }
     else{
       mode_select = 1;
@@ -60,17 +66,17 @@ int main(void)
         game_mode = 2;
       }
       printDigit(game_mode);
+      reset_games(&check, &run_game);
+      leds_off();
     }
     
-    if(millis() >= (time_btn + 2)){ //en gång varje 2 ms vill vi kolla om någon knapp är nedtryckt.
-      time_btn += 2;
-      button_state(&count1, ENTER, &btn_enter_state, &posedge_enter); 
-      button_state(&count2, BTNL, &btn_L_state, &posedge_L);
-      button_state(&count3, BTNM, &btn_M_state, &posedge_M);
-      button_state(&count4, BTNR, &btn_R_state, &posedge_R);
-      button_longpress(&btn_enter_state, &btn_enter_long);
+    button_state(&count1, ENTER, &btn_enter_state, &posedge_enter); 
+    button_state(&count2, BTNL, &btn_L_state, &posedge_L);
+    button_state(&count3, BTNM, &btn_M_state, &posedge_M);
+    button_state(&count4, BTNR, &btn_R_state, &posedge_R);
+    button_longpress(&btn_enter_state, &btn_enter_long);
+    button_2xclick(&btn_enter_2x, &btn_enter_state);
       
-    }
     
     if(game_mode == 1 && !mode_select){
       if((check == 4) || (btn_enter_2x)){ //om check är 4 så betyder det att man har misslyckats med att trycka på rätt knappar.
@@ -89,8 +95,7 @@ int main(void)
         sequence = realloc(sequence, seqsize * sizeof(unsigned char));
         assign_sequence(sequence, seqsize);
       }
-
-      button_2xclick(&check, &btn_enter_2x, &btn_enter_state);
+      
       ledBlink(sequence, seqsize, &check, blink_period, posedge_enter); 
       displayDigit(&seqsize, &high_score, &display_digit, &btn_enter_state, &check); 
       printDigit(display_digit);
@@ -100,9 +105,29 @@ int main(void)
     }
 
     else if(game_mode == 2 && !mode_select){
-      generate_pop_up(&pop_up);
-      show_pop_up(&pop_up);
-      printDigit(69);
+
+      if(btn_enter_2x){
+        run_game = 0;
+        score = 0;
+      }
+      printDigit(score);
+      confirm_start(run_game);
+      
+      if(run_game){
+        if(millis() > start_delay){
+          generate_pop_up(&pop_up);
+          show_pop_up(&pop_up, &ledL_on, &ledM_on, &ledR_on);
+          check_if_score(btn_L_state, btn_M_state, btn_R_state, &score, &ledL_on, &ledM_on, &ledR_on);
+        }
+      }
+      else{
+        leds_off();
+        
+        if(posedge_enter && !btn_enter_2x){
+          run_game = 1;
+          start_delay = (millis() + 1500);
+        }
+      }
     }
   }
 }

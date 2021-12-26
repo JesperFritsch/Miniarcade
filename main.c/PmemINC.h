@@ -50,10 +50,15 @@ void drawDigit(int8_t num);
 void printDigit(int8_t num);
 void button_state(uint8_t *count, uint8_t button, bool *btn_state, bool *posedge);
 void button_longpress(bool *btn_state, bool *longpress);
-void button_2xclick(uint8_t *check, bool *btn_2x, bool *btn_state);
+void button_2xclick(bool *btn_2x, bool *btn_state);
 void displayDigit(uint8_t *seqsize, uint8_t *high_score, uint8_t *display_digit, bool *btn_enter_state, uint8_t *check);
 void buzzer(uint8_t check);
-void show_pop_up(uint8_t *pop_up);
+void show_pop_up(uint8_t *pop_up, bool *ledL_on, bool *ledM_on, bool *ledR_on);
 void generate_pop_up(uint8_t *pop_up);
+void check_if_score(bool btn_L, bool btn_M, bool btn_R, uint8_t *score, bool *ledL_on, bool *ledM_on, bool *ledR_on);
+void leds_off();
+void reset_games(uint8_t *check, bool *run_game);
+void confirm_start(bool run_game);
+
 
 #endif /* PMEMINC_H_ */

@@ -140,7 +140,7 @@ void is_success(uint8_t *check){    //funktion som visar om man lyckats eller mi
         count++;
       }
     }
-    if(count >= 6){ //När count när 6 så är funktionen färdig och check ställs till 5, variabler återställs.
+    if(count >= 6){ //När count når 6 så är funktionen färdig och check ställs till 5, variabler återställs.
       count = 0;
       *check = 5;
       time_set = false;
@@ -314,9 +314,11 @@ void button_state(uint8_t *count, uint8_t button, bool *btn_state, bool *posedge
     if(*count >= 4){      //om räknaren når 4 så anses knappens state vara ändrat, btn_state uppdateras.
       *btn_state = cur_state;
       *count = 0;
+      
+      if(*btn_state){
+        *posedge = 1;
+      }
     }
-    *posedge = 1;
-    
   }
   else{
     *count = 0;
@@ -341,52 +343,24 @@ void button_longpress(bool *btn_state, bool *longpress){
   static uint8_t counter = 0;
   static bool is_on = false;
   static bool is_done = false;
-  static bool go_blink = false;
-  static bool time1_set = false;    //variabel för att hålla koll på om tiden är satt för att känna igen ett longpress
-  static bool time2_set = false;    //variabel för att hålla koll på om tiden för eventuell blinkning är satt.
+  static bool time_set = false;    //variabel för att hålla koll på om tiden är satt för att känna igen ett longpress
   if((*btn_state)&&(!is_done)){
-    if(!time1_set){
+    if(!time_set){
       t_zero = millis();
-      time1_set = true;
+      time_set = true;
     }
     if((millis() >= t_zero + 1000)){
       is_done = true;
-      go_blink = true;
       *longpress = !(*longpress);
     }
   }
   else if(!(*btn_state)){
-    time1_set = false;
+    time_set = false;
     is_done = false;
-  }
-  if(go_blink){   
-    if(!time2_set){
-      t_zero = millis();
-      time2_set = true;
-    }
-    if(millis() >= (t_zero + 100)){ //Tänd och släck LEDs var 100ms.
-      t_zero += 100;
-      if(!is_on){
-        PORTB |= (1 << ledL);
-        is_on = true; 
-        counter++;
-      }
-      else{
-        PORTB &= ~(1 << ledL);
-        is_on = false;
-        counter++;
-      }
-      if(counter >= 6){
-        counter = 0;
-        time2_set = false;
-        go_blink = false;
-        is_done = true;
-      }
-    }
   }
 } 
 
-void button_2xclick(uint8_t *check, bool *btn_2x, bool *btn_state){
+void button_2xclick(bool *btn_2x, bool *btn_state){
   static bool is_done = 1;
   static unsigned long timer;
   static bool check_state = 0;
@@ -415,43 +389,44 @@ void button_2xclick(uint8_t *check, bool *btn_2x, bool *btn_state){
 void buzzer(uint8_t check){
   static bool go = 0;
   static unsigned long time_stamp3 = 0, timer = 0;
+  unsigned long milli = millis();
   if((check == 0)||(go)){
     if(!go){
       go = 1;
-      time_stamp3 = millis();
-      timer = millis();
+      time_stamp3 = milli;
+      timer = milli;
     }
     if(time_stamp3 < timer+500){
-      if(millis() > time_stamp3+1){
+      if(milli > time_stamp3+1){
         PORTB |= (1<<BUZZ);
       }
-      if(millis() > time_stamp3+2){
-        time_stamp3 = millis();
+      if(milli > time_stamp3+2){
+        time_stamp3 = milli;
         PORTB &= ~(1<<BUZZ);
       }
     
     }
     else if(time_stamp3 < timer+1000){
-      if(millis() > time_stamp3+3){
+      if(milli > time_stamp3+3){
         PORTB |= (1<<BUZZ);
       }
-      if(millis() > time_stamp3+6){
-        time_stamp3 = millis();
+      if(milli > time_stamp3+6){
+        time_stamp3 = milli;
         PORTB &= ~(1<<BUZZ);
       }
       
     }
     else if(time_stamp3 < timer+1500){
-      if(millis() > time_stamp3+6){
+      if(milli > time_stamp3+6){
         PORTB |= (1<<BUZZ);
       }
-      if(millis() > time_stamp3+12){
-        time_stamp3 = millis();
+      if(milli > time_stamp3+12){
+        time_stamp3 = milli;
         PORTB &= ~(1<<BUZZ);
       }
       
     }
-    if(millis() > timer+1500){
+    if(milli > timer+1500){
       go = 0;
     }
   
@@ -459,60 +434,165 @@ void buzzer(uint8_t check){
 }
 
 void generate_pop_up(uint8_t *pop_up){
-  static uint8_t last_pop = 0;
   const uint8_t low = 1;
-  const uint8_t high = 4;
+  const uint8_t high = 3;
   if(*pop_up == 0){
     *pop_up = low + rand() / (RAND_MAX / (high - low + 1) + 1);
-    if(*pop_up == 3){
-      *pop_up == 0;
-    }
   }
 }
 
-void show_pop_up(uint8_t *pop_up){
+void show_pop_up(uint8_t *pop_up, bool *ledL_on, bool *ledM_on, bool *ledR_on){
   static unsigned long timer = 0;
-  static uint8_t low = 100;
-  static uint8_t high = 1000;
-
-  static bool ledL_on = 0;
-  static bool ledM_on = 0;
-  static bool ledR_on = 0;
+  static uint8_t low = 200;
+  static uint16_t high = 2000;
+  unsigned long milli = millis();
 
   static unsigned long ledL_timer = 0;
   static unsigned long ledM_timer = 0;
   static unsigned long ledR_timer = 0;
 
-  if(millis() > timer){
-    timer += low + rand() / (RAND_MAX / (high - low + 1) + 1);
-
+  if(milli > timer){
+    timer = milli + (low + rand() / (RAND_MAX / (high - low + 1) + 1));
     if(*pop_up == 1){
-      PORTB |= (1 << ledR);
-      ledR_on = 1;
-      ledR_timer = (millis() + 300);
+      *ledR_on = 1;
+      ledR_timer = (milli + 1000);
     }
     else if(*pop_up == 2){
-      PORTB |= (1 << ledM);
-      ledM_on = 1;
-      ledM_timer = (millis() + 300);
+      *ledM_on = 1;
+      ledM_timer = (milli + 1000);
     }
-    else if(*pop_up == 4){
-      PORTB |= (1 << ledL);
-      ledL_on = 1;
-      ledL_timer = (millis() + 300);
+    else if(*pop_up == 3){
+      *ledL_on = 1;
+      ledL_timer = (milli + 1000);
     }
+  }
 
-    if(millis() >= ledR_timer){
-      PORTB &= ~(1 << ledR);
-      ledR_on = 0;
+  if(milli >= ledR_timer){
+    *ledR_on = 0;
+    *pop_up = 0;
+  }
+  if(milli >= ledM_timer){
+    *ledM_on = 0;
+    *pop_up = 0;
+  }
+  if(milli >= ledL_timer){
+    *ledL_on = 0;
+    *pop_up = 0;
+  }
+
+  if(*ledR_on){
+    PORTB |= (1 << ledR);
+  }
+  else{
+    PORTB &= ~(1 << ledR);
+  }
+  if(*ledM_on){
+    PORTB |= (1 << ledM);
+  }
+  else{
+    PORTB &= ~(1 << ledM);
+  }
+  if(*ledL_on){
+    PORTB |= (1 << ledL);
+  }
+  else{
+    PORTB &= ~(1 << ledL);
+  }
+}
+
+void check_if_score(bool btn_L, bool btn_M, bool btn_R, uint8_t *score, bool *ledL_on, bool *ledM_on, bool *ledR_on){
+ 
+  static bool discardL = 0;
+  static bool discardM = 0;
+  static bool discardR = 0;
+
+  if(!discardL && btn_L){
+    if(*ledL_on){
+      *score += 1;
+      *ledL_on = 0;
     }
-    if(millis() >= ledM_timer){
-      PORTB &= ~(1 << ledM);
-      ledM_on = 0;
+    else{
+      discardL = 1;
     }
-    if(millis() >= ledL_timer){
+  }
+  if(!discardM && btn_M){
+    if(*ledM_on){
+      *score += 1;
+      *ledM_on = 0;
+    }
+    else{
+      discardM = 1;
+    }
+  }
+  if(!discardR && btn_R){
+    if(*ledR_on){
+      *score += 1;
+      *ledR_on = 0;
+    }
+    else{
+      discardR = 1;
+    }
+  }
+  
+  if(!btn_L){
+    discardL = 0;
+  }
+  if(!btn_M){
+    discardM = 0;
+  }
+  if(!btn_R){
+    discardR = 0;
+  }
+}
+
+void leds_off(){
+  PORTB &= ~(1 << ledL);
+  PORTB &= ~(1 << ledM);
+  PORTB &= ~(1 << ledR);
+}
+
+void reset_games(uint8_t *check, bool *run_game){
+  *check = 4;
+  *run_game = 0;
+}
+
+void confirm_start(bool run_game){
+  unsigned long milli = millis();
+  static unsigned long timer = 0;
+  const uint8_t duration = 100;
+  static bool time_set = 0;
+  static bool done = 0;
+
+  if(!run_game){
+    done = 0;
+  }
+  
+  if(run_game && !done){
+    if(!time_set){
+      timer = milli;
+      time_set = 1;
+      PORTB |= (1 << ledL);
+    }
+    if(milli > timer + duration){
       PORTB &= ~(1 << ledL);
-      ledL_on = 0;
+      PORTB |= (1 << ledM);
+    }
+    if(milli > timer + (2*duration)){
+      PORTB &= ~(1 << ledM);
+      PORTB |= (1 << ledR);
+    }
+    if(milli > timer + (3*duration)){
+      PORTB &= ~(1 << ledR);
+      PORTB |= (1 << ledM);
+    }
+    if(milli > timer + (4*duration)){
+      PORTB &= ~(1 << ledM);
+      PORTB |= (1 << ledL);
+    }
+    if(milli > timer + (5*duration)){
+      PORTB &= ~(1 << ledL);
+      done = 1;
+      time_set = 0;
     }
   }
 }

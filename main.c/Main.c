@@ -117,7 +117,7 @@ int main(void)
         run_game = 0;
         reset_pop_score(&score, run_game);
       }
-      printDigit(pop_difficulty);
+      printDigit(score);
       confirm_start(run_game, &ledL_on, &ledM_on, &ledR_on);
       set_gametime(&gametime, pop_difficulty);
       game_dynamic(&game_pace, gametime, &run_game);

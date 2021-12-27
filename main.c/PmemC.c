@@ -662,10 +662,14 @@ void check_if_score(bool btn_L, bool btn_M, bool btn_R, uint8_t *score, bool *le
 
   //some logick to make sure you cant gain points by rapidly hitting the buttons.
 
-  if(posedge_L || posedge_M || posedge_R){
-   if(!(*ledL_on || *ledM_on || *ledR_on)){
+  if((posedge_L)&&(!*ledL_on)){
     cheat_counter++;
-   }
+  }
+  if((posedge_M)&&(!*ledM_on)){
+    cheat_counter++;
+  }
+  if((posedge_R)&&(!*ledR_on)){
+    cheat_counter++;
   }
   if(*ledL_on || *ledM_on || *ledR_on){
     cheat_counter = 0;

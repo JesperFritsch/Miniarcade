@@ -1,6 +1,9 @@
 # Prerequisites
 *.d
 
+# Arduino file
+main.c.ino
+
 # Object files
 *.o
 *.ko

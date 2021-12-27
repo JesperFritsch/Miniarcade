@@ -17,7 +17,7 @@ void init_ports(void){
   PORTD = (1<<ENTER)|(1<<BTNL)|(1<<BTNM)|(1<<BTNR)|(1<<digit1)|(1<<digit2);
 }
 
-void ledBlink(unsigned char *sequence, uint8_t size, uint8_t *check, uint8_t period, bool posedge_enter){ //Funktion som tänder LEDs enligt den sekvenser som är genererad.
+void ledBlink(unsigned char *sequence, uint8_t size, uint8_t *check, bool posedge_enter){ //Funktion som tänder LEDs enligt den sekvenser som är genererad.
   static bool done_blink = true; //Bool för att hålla ordning på om det är dags att visa sekvensen för användaren.
   static bool time_set = false; //Bool för att hålla ordning på om vi har tilldelat time_stamp tiden då fuktionen anropades.
   static bool is_on = 0;      //Bool för att hålla ordning på om vi skall tända eller släcka LEDs.
@@ -28,6 +28,7 @@ void ledBlink(unsigned char *sequence, uint8_t size, uint8_t *check, uint8_t per
     if(*check == 5){
       done_blink = false;
     }
+    PORTB &= ~((1 << ledL) | (1 << ledM) | (1 << ledR));
     *check = 3;
     allow = 1;
   }
@@ -42,7 +43,7 @@ void ledBlink(unsigned char *sequence, uint8_t size, uint8_t *check, uint8_t per
     }
     
     if(millis() >= time_stamp){ //Om 700 ms har passerat sedan vi tilldelade time_stamp så skall vi
-      time_stamp += period;   //visa första delen av sekvensen. Därefter så skall vi släcka och tända nästa del var 250/125e ms.
+      time_stamp += 250;   //visa första delen av sekvensen. Därefter så skall vi släcka och tända nästa del var 250/125e ms.
       if(is_on){
         PORTB &= ~(sequence[count]);
         count++;
@@ -74,11 +75,28 @@ int init_srand(void){ //för att sekvensen skall vara annorlunda varje gång anv
   return count;
 }
 
-void assign_sequence(unsigned char* sequence, uint8_t size){ //Tilldelar sekvensen slumpade värden mellan 1-6. 
+void assign_sequence(unsigned char* sequence, uint8_t size, uint8_t difficulty){ //Tilldelar sekvensen slumpade värden mellan 1-6. 
   const uint8_t low = 1;
   const uint8_t high = 6;
-  for(uint8_t i = size-1; i < size; i++){
-    sequence[i] = low + rand() / (RAND_MAX / (high - low + 1) + 1);
+  uint8_t next = 0;
+
+  switch(difficulty){
+    case 1:
+      do{
+        next = low + rand() / (RAND_MAX / (4 - low + 1) + 1);
+      }while(next == 3);
+      sequence[size-1] = next;
+      break;
+      
+    case 2:
+      sequence[size-1] = low + rand() / (RAND_MAX / (high - low + 1) + 1);
+      break;
+
+    case 3:
+      for(int i = 0; i < size; i++){
+        sequence[i] = low + rand() / (RAND_MAX / (high - low + 1) + 1);
+      }
+      break;
   }
 }
 
@@ -306,23 +324,27 @@ void printDigit(int8_t num){      //Funktion som tänder och släcker hela siffr
   }
 }
 //debounce funktion för att bestämma knapparnas "state", anropas från main varje 2ms.
-void button_state(uint8_t *count, uint8_t button, bool *btn_state, bool *posedge){ 
+void button_state(uint8_t *count, uint8_t button, bool *btn_state, bool *posedge, bool *negedge){ 
   bool cur_state = ((PIND & (1<<button)) == 0); //knappens rådande "state"
   
   if(cur_state != *btn_state){  //om rådande "state" är annat än vad programmet vet så skall en räknare räknas upp.
     ++*count;
-    if(*count >= 4){      //om räknaren når 4 så anses knappens state vara ändrat, btn_state uppdateras.
+    if(*count >= 10){      //om räknaren når 10 så anses knappens state vara ändrat, btn_state uppdateras.
       *btn_state = cur_state;
       *count = 0;
       
       if(*btn_state){
         *posedge = 1;
       }
+      else{
+        *negedge = 1;
+      }
     }
   }
   else{
     *count = 0;
     *posedge = 0;
+    *negedge = 0;
   }
 }
 
@@ -434,6 +456,8 @@ void buzzer(uint8_t check){
 }
 
 void generate_pop_up(uint8_t *pop_up){
+
+  //function just to generate the next LED to light up.
   const uint8_t low = 1;
   const uint8_t high = 3;
   if(*pop_up == 0){
@@ -441,31 +465,96 @@ void generate_pop_up(uint8_t *pop_up){
   }
 }
 
-void show_pop_up(uint8_t *pop_up, bool *ledL_on, bool *ledM_on, bool *ledR_on){
+void game_dynamic(float *pace, unsigned long gametime, bool *run_game){
+
+  //Function to make the pop_up game dynamic, based on the gametime it progressively 
+  //increses a float(pace) that can be used to ramp up the gameplay.
+
+  unsigned long milli = millis();
+  static bool time_set = 0;
+  static unsigned long t_start = 0;
+  gametime *= 1000;
+  
+  if(*run_game){
+    if(!time_set){
+      t_start = milli;
+      time_set = 1;
+    }
+    *pace = (((float)milli - t_start) / gametime);
+  }
+  else{
+    time_set = 0;
+    *pace = 0;
+  }
+  if((milli - t_start) >= gametime){
+    *run_game = 0;
+  }
+}
+
+void set_gametime(unsigned long *t_game, uint8_t difficulty){
+  switch(difficulty){
+    case 1:
+      *t_game = 30;
+      break;
+    
+    case 2:
+      *t_game = 60;
+      break;
+
+    case 3: 
+      *t_game = 90;
+      break;
+  }
+}
+
+void show_pop_up(uint8_t *pop_up, bool *ledL_on, bool *ledM_on, bool *ledR_on, float pace){
+  //function to show the player what buttons to press. 
+
   static unsigned long timer = 0;
-  static uint8_t low = 200;
-  static uint16_t high = 2000;
   unsigned long milli = millis();
 
   static unsigned long ledL_timer = 0;
   static unsigned long ledM_timer = 0;
   static unsigned long ledR_timer = 0;
+  static unsigned long ledL_offtimer = 0;
+  static unsigned long ledM_offtimer = 0;
+  static unsigned long ledR_offtimer = 0;
+  const uint8_t default_low = 300;
+  const uint16_t default_high = 2000;
+  const uint16_t default_led_ton = 1000;
+  const uint16_t default_led_toff = 300;
+  static uint8_t low;
+  static uint16_t high;
+  static uint16_t led_ton;
+  static uint8_t led_toff;
+
+  //Logic to ramp up the speed of the gameplay.
+
+  low = default_low - (100 * pace);
+  high = default_high - (1500 * pace);
+  led_ton = default_led_ton - (850 * pace);
+  led_toff = default_led_toff - (100 * pace);
+
+  //randomgenerates the amout of time between every new LED pop up.
+  //also makes sure that no LED is lit up immedietly after it has ben turned off.
 
   if(milli > timer){
     timer = milli + (low + rand() / (RAND_MAX / (high - low + 1) + 1));
-    if(*pop_up == 1){
+    if((*pop_up == 1)&&(milli >= ledR_offtimer)){
       *ledR_on = 1;
-      ledR_timer = (milli + 1000);
+      ledR_timer = (milli + led_ton);
     }
-    else if(*pop_up == 2){
+    else if((*pop_up == 2)&&(milli >= ledM_offtimer)){
       *ledM_on = 1;
-      ledM_timer = (milli + 1000);
+      ledM_timer = (milli + led_ton);
     }
-    else if(*pop_up == 3){
+    else if((*pop_up == 3)&&(milli >= ledL_offtimer)){
       *ledL_on = 1;
-      ledL_timer = (milli + 1000);
+      ledL_timer = (milli + led_ton);
     }
   }
+
+  //turn off the LEDs if its button has not been pressed in time.
 
   if(milli >= ledR_timer){
     *ledR_on = 0;
@@ -480,19 +569,35 @@ void show_pop_up(uint8_t *pop_up, bool *ledL_on, bool *ledM_on, bool *ledR_on){
     *pop_up = 0;
   }
 
+  //if any LED is on, update its off-time timer.
+
   if(*ledR_on){
+    ledR_offtimer = milli + led_toff;
+  }
+  if(*ledM_on){
+    ledM_offtimer = milli + led_toff;
+  }
+  if(*ledL_on){
+    ledL_offtimer = milli + led_toff;
+  }
+}
+
+void manage_leds(bool ledL_on, bool ledM_on, bool ledR_on){
+  //funtion just to manage the LEDs
+
+  if(ledR_on){
     PORTB |= (1 << ledR);
   }
   else{
     PORTB &= ~(1 << ledR);
   }
-  if(*ledM_on){
+  if(ledM_on){
     PORTB |= (1 << ledM);
   }
   else{
     PORTB &= ~(1 << ledM);
   }
-  if(*ledL_on){
+  if(ledL_on){
     PORTB |= (1 << ledL);
   }
   else{
@@ -500,16 +605,25 @@ void show_pop_up(uint8_t *pop_up, bool *ledL_on, bool *ledM_on, bool *ledR_on){
   }
 }
 
-void check_if_score(bool btn_L, bool btn_M, bool btn_R, uint8_t *score, bool *ledL_on, bool *ledM_on, bool *ledR_on){
- 
+void check_if_score(bool btn_L, bool btn_M, bool btn_R, uint8_t *score, bool *ledL_on, bool *ledM_on, bool *ledR_on, bool posedge_L, bool posedge_M, bool posedge_R){
+
+  unsigned long milli = millis();
+  static unsigned long timer = 0;
+  static bool time_set = 0;
   static bool discardL = 0;
   static bool discardM = 0;
   static bool discardR = 0;
+  static uint16_t timeout = 2500;
+  static uint8_t cheat_counter = 0;
+
+  //logic to check if a button is pressed when the corresponding LED is on. If so, turn off that LED and 
+  //discard that button until it is released.
 
   if(!discardL && btn_L){
     if(*ledL_on){
       *score += 1;
       *ledL_on = 0;
+      discardL = 1;
     }
     else{
       discardL = 1;
@@ -519,6 +633,7 @@ void check_if_score(bool btn_L, bool btn_M, bool btn_R, uint8_t *score, bool *le
     if(*ledM_on){
       *score += 1;
       *ledM_on = 0;
+      discardM = 1;
     }
     else{
       discardM = 1;
@@ -528,6 +643,7 @@ void check_if_score(bool btn_L, bool btn_M, bool btn_R, uint8_t *score, bool *le
     if(*ledR_on){
       *score += 1;
       *ledR_on = 0;
+      discardR = 1;
     }
     else{
       discardR = 1;
@@ -543,12 +659,36 @@ void check_if_score(bool btn_L, bool btn_M, bool btn_R, uint8_t *score, bool *le
   if(!btn_R){
     discardR = 0;
   }
+
+  //some logick to make sure you cant gain points by rapidly hitting the buttons.
+
+  if(posedge_L || posedge_M || posedge_R){
+   if(!(*ledL_on || *ledM_on || *ledR_on)){
+    cheat_counter++;
+   }
+  }
+  if(*ledL_on || *ledM_on || *ledR_on){
+    cheat_counter = 0;
+  }
+  if((cheat_counter >= 2)||(timer >= milli)){
+    if(!time_set){
+      timer = (milli + timeout);
+      time_set = 1;
+    }
+    discardL = 1;
+    discardM = 1;
+    discardR = 1;
+  }
+  else{
+    time_set = 0;
+  }
+  
 }
 
-void leds_off(){
-  PORTB &= ~(1 << ledL);
-  PORTB &= ~(1 << ledM);
-  PORTB &= ~(1 << ledR);
+void leds_off(bool *ledL_on, bool *ledM_on, bool *ledR_on){
+  *ledL_on = 0;
+  *ledM_on = 0;
+  *ledR_on = 0;
 }
 
 void reset_games(uint8_t *check, bool *run_game){
@@ -556,7 +696,89 @@ void reset_games(uint8_t *check, bool *run_game){
   *run_game = 0;
 }
 
-void confirm_start(bool run_game){
+void reset_pop_score(uint8_t *score, bool run_game){
+  //Function to reset the score just when a new game begins.
+  static bool reset = 0;
+  if(run_game){
+    if(!reset){
+      *score = 0;
+      reset = 1;
+    }
+  }
+  else{
+    reset = 0;
+  }
+}
+
+void game_select_mode(bool *mode_sel, bool btn_L, bool btn_M, bool btn_R, bool neg_e, uint8_t *game_mode, uint8_t *memo_difficulty, uint8_t *pop_difficulty){
+  
+  //Function to create a kind of lobby where you can pick what game to play and at what difficulty.
+
+  if(btn_L){
+    *game_mode = 1;
+  }
+  if(btn_M){
+    *game_mode = 2;
+  }
+
+  if((*memo_difficulty == 0) || (*pop_difficulty == 0)){
+    *pop_difficulty = 1;
+    *memo_difficulty = 1;
+  }
+  
+  switch(*game_mode){
+    case 1:
+
+      if(neg_e){
+        ++*memo_difficulty;
+        if(*memo_difficulty > 3){
+          *memo_difficulty = 1;
+        }
+      }
+      
+      if(*memo_difficulty == 1){
+        PORTB |= (1 << ledL);
+        PORTB &= ~((1 << ledM) | (1 << ledR));
+      }
+      else if(*memo_difficulty == 2){
+        PORTB |= (1 << ledL) | (1 << ledM);
+        PORTB &= ~(1 << ledR);
+      }
+      else if(*memo_difficulty == 3){
+        PORTB |= (1 << ledL) | (1 << ledM) | (1 << ledR);
+      }
+      break;
+    case 2:
+    
+      if(neg_e){
+        ++*pop_difficulty;
+        if(*pop_difficulty > 3){
+          *pop_difficulty = 1;
+        }
+      }
+
+      if(*pop_difficulty == 1){
+        PORTB |= (1 << ledL);
+        PORTB &= ~((1 << ledM) | (1 << ledR));
+      }
+      else if(*pop_difficulty == 2){
+        PORTB |= (1 << ledL) | (1 << ledM);
+        PORTB &= ~(1 << ledR);
+      }
+      else if(*pop_difficulty == 3){
+        PORTB |= (1 << ledL) | (1 << ledM) | (1 << ledR);
+      }
+      break;
+      
+    default:
+      break;
+  }
+}
+
+
+void confirm_start(bool run_game, bool *ledL_on, bool *ledM_on, bool *ledR_on){
+
+  //Function to show the player that the game is about to begin.
   unsigned long milli = millis();
   static unsigned long timer = 0;
   const uint8_t duration = 100;
@@ -571,26 +793,26 @@ void confirm_start(bool run_game){
     if(!time_set){
       timer = milli;
       time_set = 1;
-      PORTB |= (1 << ledL);
+      *ledL_on = 1;
     }
     if(milli > timer + duration){
-      PORTB &= ~(1 << ledL);
-      PORTB |= (1 << ledM);
+      *ledL_on = 0;
+      *ledM_on = 1;
     }
     if(milli > timer + (2*duration)){
-      PORTB &= ~(1 << ledM);
-      PORTB |= (1 << ledR);
+      *ledM_on = 0;
+      *ledR_on = 1;
     }
     if(milli > timer + (3*duration)){
-      PORTB &= ~(1 << ledR);
-      PORTB |= (1 << ledM);
+      *ledR_on = 0;
+      *ledM_on = 1;
     }
     if(milli > timer + (4*duration)){
-      PORTB &= ~(1 << ledM);
-      PORTB |= (1 << ledL);
+      *ledM_on = 0;
+      *ledL_on = 1;
     }
     if(milli > timer + (5*duration)){
-      PORTB &= ~(1 << ledL);
+      *ledL_on = 0;
       done = 1;
       time_set = 0;
     }

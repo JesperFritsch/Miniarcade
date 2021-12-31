@@ -9,8 +9,8 @@
 volatile unsigned long timer1_millis;
 
 void init_DDR(void){ 
-  DDRB = (1<<ledL)|(1<<ledM)|(1<<ledR)|(1<<PORTB3)|(1<<PORTB4)|(1<<BUZZ);
-  DDRD = (1<<digit1)|(1<<digit2);
+  DDRB = (1<<ledL)|(1<<ledM)|(1<<ledR)|(1<<PORTB3)|(1<<PORTB4);
+  DDRD = (1<<digit1)|(1<<digit2)|(1<<BUZZ);
   DDRC = (1<<PORTC0)|(1<<PORTC3)|(1<<PORTC2)|(1<<PORTC1)|(1<<PORTC4);
 }
 void init_ports(void){
@@ -101,7 +101,7 @@ void assign_sequence(unsigned char* sequence, uint8_t size, uint8_t difficulty){
 }
 
   //funktion som kollar vilka knappar man trycker ned och jämför med den nyss visade sekvensen.
-void cmp_sequence(unsigned char *sequence, uint8_t size, uint8_t *check, bool btn1, bool btn2, bool btn3){
+void cmp_sequence(unsigned char *sequence, uint8_t size, uint8_t *check, bool btn1, bool btn2, bool btn3, uint8_t *sound, bool *go_buzz){
   
   static uint8_t count = 0;   //räknare för att hålla ordning på vilken del av sekvensen som skall jämföras med knapptrycken.
   static bool is_pressed = false; //Bool för att hålla reda på om man har tryckt in sin gissning eller ej.
@@ -128,6 +128,7 @@ void cmp_sequence(unsigned char *sequence, uint8_t size, uint8_t *check, bool bt
     else{       //om man misslyckas med att efterlikna sekvensen så skall check sättas till 0 och 
       mask = 0x00;  //funktionsvarieblerna skall återställas.
       is_pressed = false;
+      call_buzzer(sound, go_buzz, 3);
       *check = 0;
       count = 0;
       
@@ -362,8 +363,6 @@ void displayDigit(uint8_t *seqsize, uint8_t *high_score, uint8_t *display_digit,
 //funktion som känner igen om man håller inne en knapp i en sekund och ändrar i så fall värdet på bool longpress. 
 void button_longpress(bool *btn_state, bool *longpress){
   static unsigned long t_zero = 0;  //5st variabler för att holla koll på hur funktionen skall utföras.
-  static uint8_t counter = 0;
-  static bool is_on = false;
   static bool is_done = false;
   static bool time_set = false;    //variabel för att hålla koll på om tiden är satt för att känna igen ett longpress
   if((*btn_state)&&(!is_done)){
@@ -408,51 +407,68 @@ void button_2xclick(bool *btn_2x, bool *btn_state){
   }
 }
 
-void buzzer(uint8_t check){
-  static bool go = 0;
-  static unsigned long time_stamp3 = 0, timer = 0;
-  unsigned long milli = millis();
-  if((check == 0)||(go)){
-    if(!go){
-      go = 1;
-      time_stamp3 = milli;
-      timer = milli;
+/*void call_buzzer(uint16_t *sound[], uint8_t *sound_size, bool *go, uint16_t tones[][3], uint8_t rows){
+  free(sound);
+  *sound_size = rows;
+  *sound = malloc(sizeof(uint16_t[rows][3]));
+
+  for(uint8_t i = 0; i < *sound_size; i++){
+    for(uint8_t j = 0; j < 3; j++){
+      sound[i][j] = tones[i][j];
     }
-    if(time_stamp3 < timer+500){
-      if(milli > time_stamp3+1){
-        PORTB |= (1<<BUZZ);
-      }
-      if(milli > time_stamp3+2){
-        time_stamp3 = milli;
-        PORTB &= ~(1<<BUZZ);
-      }
-    
-    }
-    else if(time_stamp3 < timer+1000){
-      if(milli > time_stamp3+3){
-        PORTB |= (1<<BUZZ);
-      }
-      if(milli > time_stamp3+6){
-        time_stamp3 = milli;
-        PORTB &= ~(1<<BUZZ);
-      }
-      
-    }
-    else if(time_stamp3 < timer+1500){
-      if(milli > time_stamp3+6){
-        PORTB |= (1<<BUZZ);
-      }
-      if(milli > time_stamp3+12){
-        time_stamp3 = milli;
-        PORTB &= ~(1<<BUZZ);
-      }
-      
-    }
-    if(milli > timer+1500){
-      go = 0;
-    }
-  
   }
+  *go = 1;
+  
+}*/
+
+void call_buzzer(uint8_t *sound, bool *go, uint8_t wanted_sound){
+  *sound = wanted_sound;
+  *go = 1;
+}
+
+void buzzer(uint16_t sound[][3], uint8_t sound_size, bool *go){
+  static uint8_t counter = 0;
+  uint8_t buzz_high = sound[counter][0];
+  uint8_t buzz_low = sound[counter][1];
+  uint16_t tone_dur = sound[counter][2];
+  unsigned long milli = millis();
+  static bool time_set = 0;
+  static unsigned long timer;
+  static unsigned long tone_timer;
+  if(*go){
+    if(!time_set){
+      timer = (milli + tone_dur);
+      tone_timer = milli;
+      time_set = 1;
+    }
+    if(milli <= timer){
+      if(milli < (tone_timer + buzz_high)){
+        PORTD |= (1<<BUZZ);
+      }
+      else if(milli < (tone_timer + buzz_low)){
+        PORTD &= ~(1<<BUZZ);
+      }
+      else{
+        tone_timer = milli;
+      }
+    }
+    else{
+      counter++;
+      if(counter >= sound_size){
+        counter = 0;
+        *go = 0; 
+      }
+      timer = milli + tone_dur;
+    }
+    
+  }
+  else{
+    counter = 0;
+    time_set = 0;
+    PORTD &= ~(1<<BUZZ);
+    
+  }
+  
 }
 
 void generate_pop_up(uint8_t *pop_up){
@@ -519,9 +535,9 @@ void show_pop_up(uint8_t *pop_up, bool *ledL_on, bool *ledM_on, bool *ledR_on, f
   static unsigned long ledL_offtimer = 0;
   static unsigned long ledM_offtimer = 0;
   static unsigned long ledR_offtimer = 0;
-  const uint8_t default_low = 300;
+  const uint16_t default_low = 300;
   const uint16_t default_high = 2000;
-  const uint16_t default_led_ton = 1000;
+  const uint16_t default_led_ton = 600;
   const uint16_t default_led_toff = 300;
   static uint8_t low;
   static uint16_t high;
@@ -532,7 +548,7 @@ void show_pop_up(uint8_t *pop_up, bool *ledL_on, bool *ledM_on, bool *ledR_on, f
 
   low = default_low - (100 * pace);
   high = default_high - (1500 * pace);
-  led_ton = default_led_ton - (850 * pace);
+  led_ton = default_led_ton - (400 * pace);
   led_toff = default_led_toff - (100 * pace);
 
   //randomgenerates the amout of time between every new LED pop up.
@@ -605,86 +621,58 @@ void manage_leds(bool ledL_on, bool ledM_on, bool ledR_on){
   }
 }
 
-void check_if_score(bool btn_L, bool btn_M, bool btn_R, uint8_t *score, bool *ledL_on, bool *ledM_on, bool *ledR_on, bool posedge_L, bool posedge_M, bool posedge_R){
+void check_if_score(bool btn_L, bool btn_M, bool btn_R, uint8_t *score, bool *ledL_on, bool *ledM_on, bool *ledR_on, bool posedge_L, bool posedge_M, bool posedge_R, uint8_t *sound, bool *go_buzz){
 
   unsigned long milli = millis();
   static unsigned long timer = 0;
-  static bool time_set = 0;
-  static bool discardL = 0;
-  static bool discardM = 0;
-  static bool discardR = 0;
-  static uint16_t timeout = 2500;
+  static bool discard = 0;
+  static uint16_t timeout = 1500;
   static uint8_t cheat_counter = 0;
-
-  //logic to check if a button is pressed when the corresponding LED is on. If so, turn off that LED and 
-  //discard that button until it is released.
-
-  if(!discardL && btn_L){
-    if(*ledL_on){
-      *score += 1;
-      *ledL_on = 0;
-      discardL = 1;
-    }
-    else{
-      discardL = 1;
-    }
-  }
-  if(!discardM && btn_M){
-    if(*ledM_on){
-      *score += 1;
-      *ledM_on = 0;
-      discardM = 1;
-    }
-    else{
-      discardM = 1;
-    }
-  }
-  if(!discardR && btn_R){
-    if(*ledR_on){
-      *score += 1;
-      *ledR_on = 0;
-      discardR = 1;
-    }
-    else{
-      discardR = 1;
-    }
-  }
   
-  if(!btn_L){
-    discardL = 0;
-  }
-  if(!btn_M){
-    discardM = 0;
-  }
-  if(!btn_R){
-    discardR = 0;
-  }
-
   //some logick to make sure you cant gain points by rapidly hitting the buttons.
 
   if((posedge_L)&&(!*ledL_on)){
     cheat_counter++;
+    call_buzzer(sound, go_buzz, 2);
   }
   if((posedge_M)&&(!*ledM_on)){
     cheat_counter++;
+    call_buzzer(sound, go_buzz, 2);
   }
   if((posedge_R)&&(!*ledR_on)){
     cheat_counter++;
+    call_buzzer(sound, go_buzz, 2);
   }
   if(*ledL_on || *ledM_on || *ledR_on){
     cheat_counter = 0;
   }
-  if((cheat_counter >= 2)||(timer >= milli)){
-    if(!time_set){
+  if(cheat_counter >= 2){
       timer = (milli + timeout);
-      time_set = 1;
-    }
-    discardL = 1;
-    discardM = 1;
-    discardR = 1;
+  }
+  if(timer >= milli){
+    discard = 1;
   }
   else{
-    time_set = 0;
+    discard = 0;
+  }
+
+  //logic to check if a button is pressed when the corresponding LED is on. If so, turn off that LED and 
+  //increment the score.
+
+  if((posedge_L)&&(!discard)&&(*ledL_on)){
+    *score += 1;
+    *ledL_on = 0;
+    call_buzzer(sound, go_buzz, 1);
+  }
+  if((posedge_M)&&(!discard)&&(*ledM_on)){
+    *score += 1;
+    *ledM_on = 0;
+    call_buzzer(sound, go_buzz, 1);
+  }
+  if((posedge_R)&&(!discard)&&(*ledR_on)){
+    *score += 1;
+    *ledR_on = 0;
+    call_buzzer(sound, go_buzz, 1);
   }
   
 }

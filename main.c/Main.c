@@ -29,6 +29,15 @@ int main(void)
   bool negedge_M = 0;
   bool negedge_R = 0;
 
+  //uint16_t (*sound)[3];
+  //uint8_t sound_size = 0;
+  uint8_t sound = 0;
+  bool go_buzz;
+
+  uint16_t looser_sound[3][3] = {{1, 2, 400}, {3, 6, 400}, {6, 12, 400}};
+  uint16_t smack_sound[1][3] = {1,2,60};
+  uint16_t miss_sound[1][3] = {6,12,60};
+
   uint8_t count1 = 0;   //en räknare för varje knapp, som räknas upp varje gång funktionen button_state() anropas
   uint8_t count2 = 0;   //om knappen är nedtryckt.
   uint8_t count3 = 0;
@@ -36,7 +45,6 @@ int main(void)
 
   uint8_t game_mode = 1;
   bool mode_select = 0;
-  unsigned long button_timer = 0;
 
   unsigned long milli;
 
@@ -45,6 +53,7 @@ int main(void)
   uint8_t high_score = 0; //en variabel som innehåller sessionens högsta poäng.
   uint8_t display_digit = 0;  //en variabel som innehåller vilket nummer vi skall visa på displayen.
   uint8_t memo_difficulty = 0;
+  unsigned char *sequence = (unsigned char*)malloc(seqsize * sizeof(unsigned char)); //allokerar minnet för våran sekvens.
 
   uint8_t pop_up = 0;
   uint8_t score = 0;
@@ -52,18 +61,16 @@ int main(void)
   bool ledL_on = 0;
   bool ledM_on = 0;
   bool ledR_on = 0;
-  unsigned long start_delay;
+  unsigned long start_delay = 0;
   float game_pace = 0;
   unsigned long gametime = 0;
   uint8_t pop_difficulty = 0;
-  uint8_t counter = 0;
-  
-  unsigned char *sequence = (unsigned char*)malloc(seqsize * sizeof(unsigned char)); //allokerar minnet för våran sekvens.
+
   while(1){
 
     milli = millis();
 
-    if(btn_enter_long){   //om man håller ned enterknappen så skall man kunna vexla mellan två spellägen.
+    if(btn_enter_long){   //om man håller ned enterknappen så skall man kunna växla mellan två spellägen.
       mode_select = 1;
       game_select_mode(&mode_select, btn_L_state, btn_M_state, btn_R_state, negedge_e, &game_mode, &memo_difficulty, &pop_difficulty);
       printDigit(game_mode);
@@ -82,8 +89,21 @@ int main(void)
     button_state(&count4, BTNR, &btn_R_state, &posedge_R, &negedge_R);
     button_longpress(&btn_enter_state, &btn_enter_long);
     button_2xclick(&btn_enter_2x, &btn_enter_state);
-   
-    
+
+
+    switch(sound){
+      case 1:
+        buzzer(smack_sound, 1, &go_buzz);
+        break;
+      case 2:
+        buzzer(miss_sound, 1, &go_buzz);
+        break;
+      case 3:
+        buzzer(looser_sound, 3, &go_buzz);
+        break;
+      default:
+        break;
+    }
     
     if(game_mode == 1 && !mode_select){
       if((check == 4) || (btn_enter_2x)){ //om check är 4 så betyder det att man har misslyckats med att trycka på rätt knappar.
@@ -106,9 +126,8 @@ int main(void)
       ledBlink(sequence, seqsize, &check, posedge_e); 
       displayDigit(&seqsize, &high_score, &display_digit, &btn_enter_state, &check); 
       printDigit(display_digit);
-      cmp_sequence(sequence, seqsize, &check, btn_L_state, btn_M_state, btn_R_state);
+      cmp_sequence(sequence, seqsize, &check, btn_L_state, btn_M_state, btn_R_state, &sound, &go_buzz);
       is_success(&check);
-      buzzer(check);
     }
 
     else if(game_mode == 2 && !mode_select){
@@ -128,7 +147,7 @@ int main(void)
         if(milli > start_delay){
           generate_pop_up(&pop_up);
           show_pop_up(&pop_up, &ledL_on, &ledM_on, &ledR_on, game_pace);
-          check_if_score(btn_L_state, btn_M_state, btn_R_state, &score, &ledL_on, &ledM_on, &ledR_on, posedge_L, posedge_M, posedge_R);
+          check_if_score(btn_L_state, btn_M_state, btn_R_state, &score, &ledL_on, &ledM_on, &ledR_on, posedge_L, posedge_M, posedge_R, &sound, &go_buzz);
         }
       }
       else{

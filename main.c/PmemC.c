@@ -276,12 +276,13 @@ void printDigit(int8_t num){      //Funktion som tänder och släcker hela siffr
   static unsigned char t_zero = 0;  //håller koll på tiden då siffrorna skall lysa eller ej.
   static bool time_set = false;   //håller koll på om t_zero är tilldelad en tid eller inte.
   static bool toggle = false;     //håller koll på om den ena eller den andra siffran skall lysa på display.
+  unsigned long milli = millis();
   if(num >= 10){      //om siffran man vill visa är större än 10 skall denna metoden följas.
     if(!time_set){
-      t_zero = millis();
+      t_zero = milli;
       time_set = true;
     }
-    if(millis() >= t_zero){ //varje siffra skall lysa i 5ms var.
+    if(milli >= t_zero){ //varje siffra skall lysa i 5ms var.
       t_zero += 5;
       if(toggle){
         drawDigit(-1);
@@ -304,11 +305,11 @@ void printDigit(int8_t num){      //Funktion som tänder och släcker hela siffr
   }
   else{         //om siffran man vill visa är mindre än 10 så behövs endast digit1 (till vänster på display)
     if(!time_set){
-      t_zero = millis();
+      t_zero = milli;
       time_set = true;
     }
     writePort(digit2, true);    //inaktiverar digit2 (till höger på display).
-    if(millis() >= t_zero + 5){   //blinkar siffran så att den lyser med samma styrka som om båda används.
+    if(milli >= t_zero + 5){   //blinkar siffran så att den lyser med samma styrka som om båda används.
       t_zero += 5;
       time_set = false;
       if(toggle){
@@ -399,6 +400,7 @@ void button_2xclick(bool *btn_2x, bool *btn_state){
     if((*btn_state) && (check_state)){
       *btn_2x = 1;
       check_state = 0;
+      is_done = 1;
     }
   }
   else{

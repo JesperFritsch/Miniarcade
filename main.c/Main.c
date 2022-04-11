@@ -46,7 +46,9 @@ int main(void)
   uint8_t game_mode = 1;
   bool mode_select = 0;
 
-  unsigned long milli;
+  unsigned long milli, last_milli;
+  uint8_t rev_count, num;
+
 
   uint8_t check = 4;    //en variabel för att hålla koll på vad i programmet som skall utföras.
   uint8_t seqsize = 1;  //en variabel som innehåller storleken på sekvensen.
@@ -63,7 +65,8 @@ int main(void)
   bool ledR_on = 0;
   unsigned long start_delay = 0;
   float game_pace = 0;
-  unsigned long gametime = 0;
+  uint16_t gametime = 60;
+  uint8_t game_speed = 0;
   uint8_t pop_difficulty = 0;
 
   while(1){
@@ -82,6 +85,7 @@ int main(void)
         game_mode = 1;
       }
     }
+
 
     button_state(&count1, ENTER, &btn_enter_state, &posedge_e, &negedge_e); 
     button_state(&count2, BTNL, &btn_L_state, &posedge_L, &negedge_L);
@@ -138,7 +142,7 @@ int main(void)
       }
       printDigit(score);
       confirm_start(run_game, &ledL_on, &ledM_on, &ledR_on);
-      set_gametime(&gametime, pop_difficulty);
+      set_gamespeed(&game_speed, pop_difficulty);
       game_dynamic(&game_pace, gametime, &run_game);
       reset_pop_score(&score, run_game);
       manage_leds(ledL_on, ledM_on, ledR_on);
@@ -146,7 +150,7 @@ int main(void)
       if(run_game){
         if(milli > start_delay){
           generate_pop_up(&pop_up);
-          show_pop_up(&pop_up, &ledL_on, &ledM_on, &ledR_on, game_pace);
+          show_pop_up(&pop_up, &ledL_on, &ledM_on, &ledR_on, game_pace, game_speed);
           check_if_score(btn_L_state, btn_M_state, btn_R_state, &score, &ledL_on, &ledM_on, &ledR_on, posedge_L, posedge_M, posedge_R, &sound, &go_buzz);
         }
       }

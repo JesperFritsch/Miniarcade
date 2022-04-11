@@ -52,7 +52,7 @@ void button_state(uint8_t *count, uint8_t button, bool *btn_state, bool *posedge
 void button_longpress(bool *btn_state, bool *longpress);
 void button_2xclick(bool *btn_2x, bool *btn_state);
 void displayDigit(uint8_t *seqsize, uint8_t *high_score, uint8_t *display_digit, bool *btn_enter_state, uint8_t *check);
-void show_pop_up(uint8_t *pop_up, bool *ledL_on, bool *ledM_on, bool *ledR_on, float pace);
+void show_pop_up(uint8_t *pop_up, bool *ledL_on, bool *ledM_on, bool *ledR_on, float pace, uint8_t game_speed);
 void generate_pop_up(uint8_t *pop_up);
 void check_if_score(bool btn_L, bool btn_M, bool btn_R, uint8_t *score, bool *ledL_on, bool *ledM_on, bool *ledR_on, bool posedge_L, bool posedge_M, bool posedge_R, uint8_t *sound, bool *go_buzz);
 void leds_off(bool *ledL_on, bool *ledM_on, bool *ledR_on);
@@ -62,7 +62,7 @@ void game_dynamic(float *pace, unsigned long gametime, bool *run_game);
 void reset_pop_score(uint8_t *score, bool run_game);
 void manage_leds(bool ledL_on, bool ledM_on, bool ledR_on);
 void game_select_mode(bool *mode_sel, bool btn_L, bool btn_M, bool btn_R, bool pos_e, uint8_t *game_mode, uint8_t *memo_diffuculty, uint8_t *pop_diffuculty);
-void set_gametime(unsigned long *t_game, uint8_t difficulty);
+void set_gamespeed(unsigned long *game_speed, uint8_t difficulty);
 void buzzer(uint16_t sound[][3], uint8_t sound_size, bool *go);
 void call_buzzer(uint8_t *sound, bool *go, uint8_t wanted_sound);
 //void buzzer(uint16_t *sound[], uint8_t sound_size, bool *go);
